@@ -1,3 +1,13 @@
+import 'package:flutter/foundation.dart';
+
 class AppConstants {
-  static const String backendUrl = "http://10.0.2.2:8000"; // Android Emulator localhost
+  // TODO: Replace with your actual Railway URL after deployment
+  static const String _productionUrl = "https://your-railway-app.up.railway.app";
+  
+  static String get backendUrl {
+    if (kReleaseMode) return _productionUrl; // Production (Google Play)
+    if (kIsWeb) return "http://127.0.0.1:8000"; // Local Web
+    if (defaultTargetPlatform == TargetPlatform.android) return "http://10.0.2.2:8000"; // Android Emulator
+    return "http://127.0.0.1:8000"; // Fallback
+  }
 }

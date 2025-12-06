@@ -81,9 +81,34 @@ class HomeScreen extends ConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text("ChronoHolidder", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                         Text("ChronoHolidder", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                         IconButton(icon: Icon(Icons.settings), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => SettingsScreen()))),
+                      ],
+                    ),
                     SizedBox(height: 10),
                     if (currentAnalysis != null) ...[
+                      // Show Visual Evidence if available
+                      if (currentAnalysis.peak_eras.firstOrNull?.image_url != null) 
+                        Container(
+                          height: 150,
+                          width: double.infinity,
+                          margin: EdgeInsets.only(bottom: 10),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            image: DecorationImage(
+                              image: NetworkImage(currentAnalysis.peak_eras.first.image_url!),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          child: Align(
+                            alignment: Alignment.bottomRight,
+                            child: Container(color: Colors.black54, padding: EdgeInsets.all(4), child: Text("Visual Evidence", style: TextStyle(color: Colors.white, fontSize: 10))),
+                          ),
+                        ),
+
                       Text("Top Era: ${currentAnalysis.peak_eras.firstOrNull?.era_name ?? 'N/A'}", style: TextStyle(color: Colors.amber[800], fontWeight: FontWeight.bold)),
                       Text(currentAnalysis.summary_ai, maxLines: 2, overflow: TextOverflow.ellipsis),
                       SizedBox(height: 10),

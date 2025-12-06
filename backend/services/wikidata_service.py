@@ -13,7 +13,7 @@ class WikidataService:
         """
         # SPARQL query to find things with inception dates (P571) or significant events within radius
         query = f"""
-        SELECT ?item ?itemLabel ?location ?inception ?dissolved ?typeLabel WHERE {{
+        SELECT ?item ?itemLabel ?location ?inception ?dissolved ?typeLabel ?image WHERE {{
           SERVICE wikibase:around {{
             ?item wdt:P625 ?location .
             bd:serviceParam wikibase:center "Point({lon} {lat})"^^geo:wktLiteral .
@@ -22,6 +22,7 @@ class WikidataService:
           OPTIONAL {{ ?item wdt:P571 ?inception. }}
           OPTIONAL {{ ?item wdt:P576 ?dissolved. }}
           OPTIONAL {{ ?item wdt:P31 ?type. }}
+          OPTIONAL {{ ?item wdt:P18 ?image. }}
           SERVICE wikibase:label {{ bd:serviceParam wikibase:language "ja,en". }}
         }}
         LIMIT 50
@@ -39,7 +40,8 @@ class WikidataService:
                     "location": result.get("location", {}).get("value"),
                     "inception": result.get("inception", {}).get("value"),
                     "dissolved": result.get("dissolved", {}).get("value"),
-                    "type": result.get("typeLabel", {}).get("value", "Unknown")
+                    "type": result.get("typeLabel", {}).get("value", "Unknown"),
+                    "image": result.get("image", {}).get("value")
                 })
             return entities
             

@@ -1,7 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-part 'era_score.freezed.dart';
-part 'era_score.g.dart';
+part 'models.freezed.dart';
+part 'models.g.dart';
 
 @freezed
 class EraScore with _$EraScore {

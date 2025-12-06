@@ -7,6 +7,7 @@ import 'package:chronoholidder/data/api_client.dart';
 import 'package:chronoholidder/data/models.dart';
 import 'package:chronoholidder/features/collection/collection_screen.dart';
 import 'package:chronoholidder/features/ar/ar_screen.dart';
+import 'package:chronoholidder/features/settings/settings_screen.dart';
 
 final currentAnalysisProvider = StateProvider<AnalysisResponse?>((ref) => null);
 final isLoadingProvider = StateProvider<bool>((ref) => false);

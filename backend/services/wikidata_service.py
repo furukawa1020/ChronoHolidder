@@ -43,6 +43,6 @@ class WikidataService:
                 })
             return entities
             
-        except Exception as e:
-            print(f"Wikidata Error: {e}")
+        except Exception:
+            # Silent failure for production
             return []

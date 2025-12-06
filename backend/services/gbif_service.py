@@ -45,6 +45,6 @@ class GbifService:
                         })
                 return results
             return []
-        except Exception as e:
-            print(f"GBIF Error: {e}")
+        except Exception:
+            # Silent failure for production
             return []

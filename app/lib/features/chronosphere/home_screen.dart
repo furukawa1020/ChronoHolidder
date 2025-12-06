@@ -5,6 +5,8 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:chronoholidder/data/api_client.dart';
 import 'package:chronoholidder/data/models.dart';
+import 'package:chronoholidder/features/collection/collection_screen.dart';
+import 'package:chronoholidder/features/ar/ar_screen.dart';
 
 final currentAnalysisProvider = StateProvider<AnalysisResponse?>((ref) => null);
 final isLoadingProvider = StateProvider<bool>((ref) => false);
@@ -86,10 +88,29 @@ class HomeScreen extends ConsumerWidget {
                       SizedBox(height: 10),
                       ElevatedButton(
                         onPressed: () {
-                          // TODO: Navigate to Detail/Era View
                           showModalBottomSheet(context: context, builder: (c) => EraDetailSheet(analysis: currentAnalysis));
                         },
                         child: Text("掘る (Dig into History)"),
+                      ),
+                      SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.collections_bookmark, color: Colors.brown),
+                            tooltip: "Collection",
+                            onPressed: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (c) => CollectionScreen()));
+                            },
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.view_in_ar, color: Colors.indigo),
+                            tooltip: "AR Mode",
+                            onPressed: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (c) => ArScreen()));
+                            },
+                          ),
+                        ],
                       )
                     ] else
                       ElevatedButton.icon(

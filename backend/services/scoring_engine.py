@@ -97,8 +97,16 @@ class ScoringEngine:
                     "center_year": event["year"],
                     "total_score": event["weight"],
                     "events": [event],
-                    "best_image": event.get("image")
+                    "best_image": event.get("image"),
+                    "fallback_image": event.get("original_image") # Store fallback
                 })
+            else:
+                 # Update fallback if missing
+                 for cluster in clusters:
+                     if event in cluster["events"]: # Just loop logical match, specific access optimized above
+                         if not cluster.get("fallback_image") and event.get("original_image"):
+                             cluster["fallback_image"] = event.get("original_image")
+                         break
                 
         # 4. Rank
         sorted_clusters = sorted(clusters, key=lambda x: x["total_score"], reverse=True)
@@ -125,7 +133,7 @@ class ScoringEngine:
                 "score": c["total_score"],
                 "reason": f"Cluster of {len(c['events'])} events. Primary evidence: {artifacts[0]}",
                 "artifacts": artifacts,
-                "image_url": c.get("best_image")
+                "image_url": c.get("best_image") or c.get("fallback_image")
             })
 
         if not formatted_results:

@@ -41,8 +41,29 @@ class WikidataService:
                     "inception": result.get("inception", {}).get("value"),
                     "dissolved": result.get("dissolved", {}).get("value"),
                     "type": result.get("typeLabel", {}).get("value", "Unknown"),
-                    "image": result.get("image", {}).get("value")
-                })
+                    raw_image_url = result.get("image", {}).get("value")
+                    image_url = raw_image_url
+                    
+                    # Filtering logic for high-quality "Real" images
+                    if image_url:
+                        lower_url = image_url.lower()
+                        # Exclude SVGs (usually maps/flags/logos)
+                        if lower_url.endswith(".svg"):
+                            image_url = None
+                        # Exclude specific keywords indicating non-photo
+                        elif any(keyword in lower_url for keyword in ["map", "flag", "coa", "shield", "diagram", "plan", "logo", "icon"]):
+                            image_url = None
+
+                    entities.append({
+                        "id": result["item"]["value"],
+                        "label": result["itemLabel"]["value"],
+                        "location": result.get("location", {}).get("value"),
+                        "inception": result.get("inception", {}).get("value"),
+                        "dissolved": result.get("dissolved", {}).get("value"),
+                        "type": result.get("typeLabel", {}).get("value", "Unknown"),
+                        "image": image_url,
+                        "original_image": raw_image_url # Fallback
+                    })
             return entities
             
         except Exception:

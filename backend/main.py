@@ -29,13 +29,26 @@ def read_root():
 
 @app.post("/api/analyze-location", response_model=AnalysisResponse)
 async def analyze_location(request: LocationRequest):
-    # TODO: Implement parallel fetching from Wikidata, GBIF, etc.
-    # This is currently a stub to verify the endpoint.
+    from services.scoring_engine import ScoringEngine
+    engine = ScoringEngine()
+    result = engine.analyze_location(request.latitude, request.longitude)
+    
+    # Convert dict result to pydantic models
+    peak_eras = [
+        EraScore(
+            era_name=str(era.get("era_name", "Unknown")), # Extract Era name logic better in future
+            start_year=era.get("start_year", 0),
+            end_year=era.get("end_year", 0),
+            score=era.get("score", 0),
+            reason=era.get("reason", ""),
+            artifacts=era.get("artifacts", [])
+        ) for era in result["peak_eras"]
+    ]
     
     return AnalysisResponse(
-        location_name="Unknown Location (Stub)",
-        peak_eras=[],
-        summary_ai="Analysis pending implementation of Aggregator."
+        location_name=result["location_name"],
+        peak_eras=peak_eras,
+        summary_ai=result["summary_ai"]
     )
 
 if __name__ == "__main__":

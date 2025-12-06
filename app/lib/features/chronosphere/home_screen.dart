@@ -12,8 +12,11 @@ import 'package:chronoholidder/features/settings/settings_screen.dart';
 final currentAnalysisProvider = StateProvider<AnalysisResponse?>((ref) => null);
 final isLoadingProvider = StateProvider<bool>((ref) => false);
 
-class UserLocationNotifier extends StateNotifier<LatLng> {
-  UserLocationNotifier() : super(LatLng(35.6895, 139.6917)); // Tokyo default
+class UserLocationNotifier extends Notifier<LatLng> {
+  @override
+  LatLng build() {
+     return LatLng(35.6895, 139.6917); // Tokyo default
+  }
 
   Future<void> getCurrentLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -30,9 +33,7 @@ class UserLocationNotifier extends StateNotifier<LatLng> {
   }
 }
 
-final userLocationProvider = StateNotifierProvider<UserLocationNotifier, LatLng>((ref) {
-  return UserLocationNotifier();
-});
+final userLocationProvider = NotifierProvider<UserLocationNotifier, LatLng>(UserLocationNotifier.new);
 
 class HomeScreen extends ConsumerWidget {
   @override

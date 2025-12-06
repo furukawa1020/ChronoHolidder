@@ -4,7 +4,7 @@ part 'models.freezed.dart';
 part 'models.g.dart';
 
 @freezed
-class EraScore with _$EraScore {
+abstract class EraScore with _$EraScore {
   const factory EraScore({
     required String era_name,
     required int start_year,
@@ -19,7 +19,7 @@ class EraScore with _$EraScore {
 }
 
 @freezed
-class AnalysisResponse with _$AnalysisResponse {
+abstract class AnalysisResponse with _$AnalysisResponse {
   const factory AnalysisResponse({
     required String location_name,
     required List<EraScore> peak_eras,

@@ -12,6 +12,7 @@ class EraScore with _$EraScore {
     required double score,
     required String reason,
     required List<String> artifacts,
+    String? image_url,
   }) = _EraScore;
 
   factory EraScore.fromJson(Map<String, dynamic> json) => _$EraScoreFromJson(json);

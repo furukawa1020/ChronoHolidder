@@ -17,6 +17,7 @@ class EraScore(BaseModel):
     score: float
     reason: str
     artifacts: List[str]
+    image_url: Optional[str] = None
 
 class AnalysisResponse(BaseModel):
     location_name: str
@@ -41,7 +42,8 @@ async def analyze_location(request: LocationRequest):
             end_year=era.get("end_year", 0),
             score=era.get("score", 0),
             reason=era.get("reason", ""),
-            artifacts=era.get("artifacts", [])
+            artifacts=era.get("artifacts", []),
+            image_url=era.get("image_url")
         ) for era in result["peak_eras"]
     ]
     

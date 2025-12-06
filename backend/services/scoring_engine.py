@@ -11,91 +11,138 @@ class ScoringEngine:
     def analyze_location(self, lat: float, lon: float) -> Dict[str, Any]:
         """
         Orchestrates data fetching and scoring to find the Peak Eras.
+        Uses Density Clustering for seamless time analysis.
         """
-        # 1. Fetch Data (In a real app, use asyncio.gather for parallelism)
-        wiki_entities = self.wikidata.fetch_nearby_entities(lat, lon)
+        # 1. Fetch Data
+        wiki_entities = self.wikidata.fetch_nearby_entities(lat, lon, radius_km=0.5) # Tighter radius for precision
         fossils = self.gbif.fetch_paleo_occurrences(lat, lon)
         
-        # 2. Normalize and Score
-        era_scores = {} # era_key -> score
+        # 2. Flatten Data for Clustering
+        # We want a list of {"year": int, "weight": int, "label": str, "image": str}
+        timeline_events = []
 
-        # Process Wikidata (Human History)
+        # Process Wikidata
         for entity in wiki_entities:
-            # Parse inception date (e.g., "1603-01-01T00:00:00Z")
             inception_str = entity.get("inception")
-            if not inception_str:
-                continue
-            
+            if not inception_str: continue
             try:
-                # Simplification: Just take the year
                 year = int(inception_str.split("-")[0]) if "-" in inception_str else int(inception_str[:4])
                 
-                # Determine bucket (e.g., Century or Period)
-                # For MVP, let's use broad Japanese Periods or Century
-                era_name = self._get_era_name(year)
-                
-                # Weighting: Castles/Shrines > Events
+                # Weighting Logic
                 weight = 10 
                 if "Castle" in entity.get("type", ""): weight = 50
                 if "Temple" in entity.get("type", ""): weight = 30
+                if entity.get("image"): weight += 50 # massive boost for visual proof
                 
-                if era_name not in era_scores:
-                    era_scores[era_name] = {"score": 0, "artifacts": [], "start_year": year, "end_year": year}
-                
-                era_scores[era_name]["score"] += weight
-                era_scores[era_name]["artifacts"].append(f"{entity['label']} ({year})")
-                
+                timeline_events.append({
+                    "year": year,
+                    "weight": weight,
+                    "label": entity["label"],
+                    "image": entity.get("image"),
+                    "source": "History"
+                })
             except ValueError:
                 continue
 
-        # Process Fossils (Paleontology)
+        # Process Fossils (Treat as negative years for clustering if needed, or separate bucket)
+        # For simplicity in this version, we'll keep fossils separate or use very large negative numbers
         for fossil in fossils:
-            # e.g., Cretaceous
-            # Age is in Million Years Ago (mya) usually, but GBIF returns absolute age often?
-            # Actually GBIF returns numbers like "66.0" (Ma).
-            # We treat this as "Prehistoric"
             era_min = fossil.get("era_min")
             if era_min:
-                era_name = f"Paleo-{int(era_min)}Ma"
-                if era_name not in era_scores:
-                     era_scores[era_name] = {"score": 0, "artifacts": [], "start_year": -int(era_min)*1000000, "end_year": -int(era_min)*1000000}
-                
-                era_scores[era_name]["score"] += 5
-                era_scores[era_name]["artifacts"].append(f"{fossil['scientificName']}")
+                # Million Years Ago -> Year
+                year = -int(float(era_min) * 1_000_000)
+                timeline_events.append({
+                    "year": year,
+                    "weight": 20, # Base weight for fossil evidence
+                    "label": fossil["scientificName"],
+                    "image": None, # GBIF media fetching could be added here
+                    "source": "Paleo"
+                })
 
-        # 3. Rank
-        sorted_eras = sorted(era_scores.values(), key=lambda x: x["score"], reverse=True)
-        top_eras = sorted_eras[:3]
+        # 3. Density Clustering (Simple Implementation)
+        # Group events that are within a certain "window" of each other.
+        # Window size depends on the era (Modern=10yrs, Ancient=100yrs, Paleo=10Myrs)
         
-        # Format results
+        clusters = [] # list of {"center_year": int, "total_score": int, "events": [], "best_image": str}
+        
+        sorted_events = sorted(timeline_events, key=lambda x: x["year"])
+        
+        for event in sorted_events:
+            added_to_cluster = False
+            for cluster in clusters:
+                # Dynamic window check
+                center = cluster["center_year"]
+                diff = abs(event["year"] - center)
+                
+                # Window logic
+                window = 50
+                if abs(center) > 1000: window = 200
+                if abs(center) > 1_000_000: window = 5_000_000
+                
+                if diff <= window:
+                    cluster["events"].append(event)
+                    cluster["total_score"] += event["weight"]
+                    # Update best image if this event has one and high weight
+                    if event.get("image") and not cluster.get("best_image"):
+                        cluster["best_image"] = event["image"]
+                    elif event.get("image") and event["weight"] > 30: # better image rule could be improved
+                         cluster["best_image"] = event["image"]
+                         
+                    # Re-center (simple average or keep first? Keep first for stability)
+                    added_to_cluster = True
+                    break
+            
+            if not added_to_cluster:
+                clusters.append({
+                    "center_year": event["year"],
+                    "total_score": event["weight"],
+                    "events": [event],
+                    "best_image": event.get("image")
+                })
+                
+        # 4. Rank
+        sorted_clusters = sorted(clusters, key=lambda x: x["total_score"], reverse=True)
+        top_clusters = sorted_clusters[:3]
+        
         formatted_results = []
-        for era in top_eras:
-             # Heuristic for name since we lost keys in sorting, actually we should keep structure
-             # Re-structure for clean return
-             formatted_results.append({
-                 "era_name": era["artifacts"][0].split("(")[-1].strip(")") if "(" in era["artifacts"][0] else "Era",
-                 "start_year": era["start_year"],
-                 "end_year": era["end_year"],
-                 "score": era["score"],
-                 "reason": f"High density of {len(era['artifacts'])} records.",
-                 "artifacts": era["artifacts"][:5] # limit
-             })
-             
-        # Fallback if empty (e.g. middle of ocean or empty data)
+        for c in top_clusters:
+            # Determine Name
+            # If Paleo
+            if c["center_year"] < -10000:
+                mya = abs(c["center_year"]) // 1_000_000
+                era_name = f"Paleo Era ({mya} Ma)"
+            else:
+                # Japanese Era Lookup could still be useful for naming, but year is primary
+                era_name = f"{self._get_era_name(c['center_year'])} ({c['center_year']})"
+            
+            # Evidence list
+            artifacts = [e["label"] for e in c["events"]][:5]
+            
+            formatted_results.append({
+                "era_name": era_name,
+                "start_year": c["center_year"], # Approximate center
+                "end_year": c["center_year"],
+                "score": c["total_score"],
+                "reason": f"Cluster of {len(c['events'])} events. Primary evidence: {artifacts[0]}",
+                "artifacts": artifacts,
+                "image_url": c.get("best_image")
+            })
+
         if not formatted_results:
              formatted_results.append({
-                 "era_name": "Modern / Empty",
-                 "start_year": 2000,
+                 "era_name": "Silent Era",
+                 "start_year": 2025,
                  "end_year": 2025,
                  "score": 0,
-                 "reason": "No historical data found nearby.",
-                 "artifacts": []
+                 "reason": "No data found. The ground is silent.",
+                 "artifacts": [],
+                 "image_url": None
              })
 
         return {
-            "location_name": "Analyzed Location", # Reverse geocode could go here
+            "location_name": "Coordinates",
             "peak_eras": formatted_results,
-            "summary_ai": "Analysis Complete." # AI gen step skipped for speed in this iteration
+            "summary_ai": "Analysis based on density clustering."
         }
 
     def _get_era_name(self, year: int) -> str:

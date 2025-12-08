@@ -13,8 +13,13 @@ class ScoringEngine:
         Orchestrates data fetching and scoring to find the Peak Eras.
         Uses Density Clustering for seamless time analysis.
         """
-        # 1. Fetch Data
-        wiki_entities = self.wikidata.fetch_nearby_entities(lat, lon, radius_km=0.5) # Tighter radius for precision
+        # 1. Fetch Data with Dynamic Radius
+        wiki_entities = []
+        for radius in [2.0, 5.0, 10.0]:
+            wiki_entities = self.wikidata.fetch_nearby_entities(lat, lon, radius_km=radius)
+            if wiki_entities:
+                break # Found something!
+        
         fossils = self.gbif.fetch_paleo_occurrences(lat, lon)
         
         # 2. Flatten Data for Clustering

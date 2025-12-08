@@ -6,8 +6,6 @@ class AppConstants {
   
   static String get backendUrl {
     if (kReleaseMode) return _productionUrl; // Production (Google Play)
-    if (kIsWeb) return "http://127.0.0.1:8000"; // Local Web
-    if (defaultTargetPlatform == TargetPlatform.android) return "http://10.0.2.2:8000"; // Android Emulator
-    return "http://127.0.0.1:8000"; // Fallback
+    return "http://127.0.0.1:8000"; // Localhost (Web/Windows) & Android (via adb reverse)
   }
 }

@@ -7,7 +7,12 @@ import 'models.dart';
 final apiClientProvider = Provider((ref) => ApiClient());
 
 class ApiClient {
-  final Dio _dio = Dio(BaseOptions(baseUrl: AppConstants.backendUrl));
+  final Dio _dio = Dio(BaseOptions(
+    baseUrl: AppConstants.backendUrl,
+    connectTimeout: const Duration(seconds: 60),
+    receiveTimeout: const Duration(seconds: 60),
+    sendTimeout: const Duration(seconds: 60),
+  ));
 
   Future<AnalysisResponse> analyzeLocation(double lat, double lon) async {
     try {

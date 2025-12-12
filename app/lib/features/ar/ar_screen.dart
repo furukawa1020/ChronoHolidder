@@ -1,21 +1,21 @@
-import 'package:camera/camera.dart';
+import 'package:camera/camera.dart' hide Image;
 import 'package:flutter/material.dart';
 import 'package:chronoholidder/data/models.dart';
 import 'package:scratcher/scratcher.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:chronoholidder/data/collection_repository.dart';
 
-class ArScreen extends StatefulWidget {
+class ArScreen extends ConsumerStatefulWidget {
   final EraScore? era;
   final String? aiSummary;
 
   const ArScreen({super.key, this.era, this.aiSummary});
 
   @override
-  State<ArScreen> createState() => _ArScreenState();
+  ConsumerState<ArScreen> createState() => _ArScreenState();
 }
 
-class _ArScreenState extends State<ArScreen> {
+class _ArScreenState extends ConsumerState<ArScreen> {
   CameraController? _controller;
   List<CameraDescription>? cameras;
   bool isReady = false;

@@ -2,6 +2,8 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:chronoholidder/data/models.dart';
 import 'package:scratcher/scratcher.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:chronoholidder/data/collection_repository.dart';
 
 class ArScreen extends StatefulWidget {
   final EraScore? era;
@@ -94,6 +96,13 @@ class _ArScreenState extends State<ArScreen> {
                 setState(() {
                   isRevealed = true;
                 });
+                if (widget.era != null) {
+                  ref.read(collectionRepositoryProvider).addToCollection(widget.era!);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text("Collection Updated: Excavation Successful!"),
+                    backgroundColor: Colors.green,
+                  ));
+                }
               },
               child: Container(
                 width: 300,

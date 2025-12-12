@@ -6,3 +6,5 @@ sparqlwrapper
 pandas
 pydantic
 python-dotenv
+numpy
+scipy

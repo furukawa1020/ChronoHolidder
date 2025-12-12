@@ -1,15 +1,27 @@
 from SPARQLWrapper import SPARQLWrapper, JSON
 from typing import List, Dict, Any
+import logging
+from tenacity import retry, stop_after_attempt, wait_exponential, after_log
+from functools import lru_cache
+
+logger = logging.getLogger(__name__)
 
 class WikidataService:
     def __init__(self):
         self.sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
         self.sparql.setReturnFormat(JSON)
 
+    @lru_cache(maxsize=128)
+    @retry(
+        stop=stop_after_attempt(3), 
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        after=after_log(logger, logging.WARNING)
+    )
     def fetch_nearby_entities(self, lat: float, lon: float, radius_km: float = 1.0) -> List[Dict[str, Any]]:
         """
         Fetches historical entities (castles, shrines, events, ruins) within a radius.
         Uses Wikidata P625 (coordinate location).
+        Retries on failure (3 times) and Caches results.
         """
         # SPARQL query to find things with inception dates (P571) or significant events within radius
         query = f"""

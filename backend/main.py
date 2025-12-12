@@ -1,31 +1,42 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional
 import os
 import asyncio
+import logging
+import time
+
+# --- 1. Structured Logging Setup ---
+logging.basicConfig(
+    level=logging.INFO,
+    format='{"timestamp": "%(asctime)s", "level": "%(levelname)s", "logger": "%(name)s", "message": "%(message)s"}',
+    datefmt='%Y-%m-%dT%H:%M:%S%z'
+)
+logger = logging.getLogger("back_end_core")
 
 app = FastAPI(title="ChronoHolidder API", description="Peak Era Extraction Engine")
 
-class LocationRequest(BaseModel):
-    latitude: float
-    longitude: float
-
-class EraScore(BaseModel):
-    era_name: str
-    start_year: int
-    end_year: int
-    score: float
-    reason: str
-    artifacts: List[str]
-    image_url: Optional[str] = None
-
-class AnalysisResponse(BaseModel):
-    location_name: str
-    peak_eras: List[EraScore]
-    summary_ai: str
+# --- 2. Middleware & Exception Handling ---
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    try:
+        response = await call_next(request)
+        process_time = (time.time() - start_time) * 1000
+        logger.info(f"Method={request.method} Path={request.url.path} Status={response.status_code} Duration={process_time:.2f}ms")
+        return response
+    except Exception as e:
+        process_time = (time.time() - start_time) * 1000
+        logger.error(f"Request Failed: {str(e)}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "message": "Internal Server Error", "detail": str(e)}
+        )
 
 @app.get("/")
 def read_root():
+    logger.info("Health check ping received.")
     return {"status": "online", "service": "ChronoHolidder Backend"}
 
 @app.post("/api/analyze-location", response_model=AnalysisResponse)

@@ -1,13 +1,25 @@
 import requests
 from typing import List, Dict, Any
+import logging
+from tenacity import retry, stop_after_attempt, wait_exponential, after_log
+from functools import lru_cache
+
+logger = logging.getLogger(__name__)
 
 class GbifService:
     def __init__(self):
         self.base_url = "https://api.gbif.org/v1/occurrence/search"
 
+    @lru_cache(maxsize=128)
+    @retry(
+        stop=stop_after_attempt(3), 
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        after=after_log(logger, logging.WARNING)
+    )
     def fetch_paleo_occurrences(self, lat: float, lon: float, buffer_km: float = 2.0) -> List[Dict[str, Any]]:
         """
         Fetches fossil occurrences (basisOfRecord=FOSSIL_SPECIMEN) around the location.
+        Retries on failure (3 times) and Caches results.
         """
         # GBIF range format: "min,max"
         # Approx 1 deg lat = 111km. 2km is approx 0.018 deg.

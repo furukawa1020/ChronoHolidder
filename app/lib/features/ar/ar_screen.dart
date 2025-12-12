@@ -84,7 +84,7 @@ class _ArScreenState extends State<ArScreen> {
               brushSize: 50,
               threshold: 50,
               color: Colors.brown.shade800,
-              // image: Image.asset("assets/dirt_texture.jpg"), 
+              image: Image.asset("assets/images/dirt_layer.png"), 
               onChange: (value) {
                 setState(() {
                   progress = value;

@@ -12,6 +12,9 @@ class ApiClient {
     connectTimeout: const Duration(seconds: 60),
     receiveTimeout: const Duration(seconds: 60),
     sendTimeout: const Duration(seconds: 60),
+    headers: {
+      "X-CHRONO-API-KEY": "dev_secret_key_12345", // Match backend default
+    },
   ));
 
   Future<AnalysisResponse> analyzeLocation(double lat, double lon) async {

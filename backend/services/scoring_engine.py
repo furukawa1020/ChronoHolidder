@@ -2,13 +2,68 @@ from typing import List, Dict, Any
 import datetime
 from .wikidata_service import WikidataService
 from .gbif_service import GbifService
+from .gemini_service import GeminiService
 
 class ScoringEngine:
     def __init__(self):
         self.wikidata = WikidataService()
         self.gbif = GbifService()
+        self.gemini = GeminiService()
 
     def analyze_location(self, lat: float, lon: float) -> Dict[str, Any]:
+        """
+        Orchestrates data fetching and scoring to find the Peak Eras.
+        Uses Density Clustering for seamless time analysis.
+        """
+        # ... (Fetching logic remains same) ...
+        # 1. Fetch Data with Dynamic Radius
+        wiki_entities = []
+        for radius in [2.0, 5.0, 10.0]:
+            wiki_entities = self.wikidata.fetch_nearby_entities(lat, lon, radius_km=radius)
+            if wiki_entities:
+                break # Found something!
+        
+        fossils = self.gbif.fetch_paleo_occurrences(lat, lon)
+        
+        # ... (Clustering logic remains same) ...
+        
+        # ... top_clusters calculation same ...
+        
+        formatted_results = []
+        for c in top_clusters[:3]:
+            # ... Data mapping ...
+            
+            # ...
+            artifacts = [e["label"] for e in c["events"]][:5]
+            
+            formatted_results.append({
+                "era_name": era_name, # ...
+                "start_year": c["center_year"],
+                "end_year": c["center_year"],
+                "score": c["total_score"],
+                "reason": f"Cluster of {len(c['events'])} events. Primary evidence: {artifacts[0]}",
+                "artifacts": artifacts,
+                "image_url": c.get("best_image") or c.get("fallback_image")
+            })
+
+        # AI Summary Logic for the TOP era
+        summary_ai = "Analysis based on density clustering."
+        if formatted_results:
+            top_era = formatted_results[0]
+            summary_ai = self.gemini.generate_era_summary(
+                era_name=top_era["era_name"],
+                location_name=f"{lat}, {lon}",
+                artifacts=top_era["artifacts"]
+            )
+
+        if not formatted_results:
+             # Silent Era logic...
+
+        return {
+            "location_name": "Coordinates",
+            "peak_eras": formatted_results,
+            "summary_ai": summary_ai
+        }
         """
         Orchestrates data fetching and scoring to find the Peak Eras.
         Uses Density Clustering for seamless time analysis.
@@ -141,6 +196,16 @@ class ScoringEngine:
                 "image_url": c.get("best_image") or c.get("fallback_image")
             })
 
+        # AI Summary Logic for the TOP era
+        summary_ai = "Analysis based on density clustering."
+        if formatted_results:
+            top_era = formatted_results[0]
+            summary_ai = self.gemini.generate_era_summary(
+                era_name=top_era["era_name"],
+                location_name=f"{lat:.4f}, {lon:.4f}",
+                artifacts=top_era["artifacts"]
+            )
+
         if not formatted_results:
              formatted_results.append({
                  "era_name": "Silent Era",
@@ -151,11 +216,12 @@ class ScoringEngine:
                  "artifacts": [],
                  "image_url": None
              })
+             summary_ai = "No historical data found nearby."
 
         return {
             "location_name": "Coordinates",
             "peak_eras": formatted_results,
-            "summary_ai": "Analysis based on density clustering."
+            "summary_ai": summary_ai
         }
 
     def _get_era_name(self, year: int) -> str:

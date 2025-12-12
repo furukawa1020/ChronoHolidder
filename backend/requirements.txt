@@ -10,3 +10,4 @@ numpy
 scipy
 tenacity
 async-lru
+slowapi

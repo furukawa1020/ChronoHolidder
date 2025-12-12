@@ -1,8 +1,13 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:chronoholidder/data/models.dart';
+import 'package:scratcher/scratcher.dart';
 
 class ArScreen extends StatefulWidget {
-  const ArScreen({super.key});
+  final EraScore? era;
+  final String? aiSummary;
+
+  const ArScreen({super.key, this.era, this.aiSummary});
 
   @override
   State<ArScreen> createState() => _ArScreenState();
@@ -12,6 +17,8 @@ class _ArScreenState extends State<ArScreen> {
   CameraController? _controller;
   List<CameraDescription>? cameras;
   bool isReady = false;
+  double progress = 0.0;
+  bool isRevealed = false;
 
   @override
   void initState() {
@@ -45,74 +52,91 @@ class _ArScreenState extends State<ArScreen> {
   @override
   Widget build(BuildContext context) {
     // If camera not ready, show a placeholder (functional on simulator)
-    if (!isReady || _controller == null) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(
-            child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.camera_alt_outlined, color: Colors.white54, size: 64),
-            SizedBox(height: 16),
-            Text("AR Camera Loading...", style: TextStyle(color: Colors.white54)),
-          ],
-        )),
-      );
+    Widget bg = Container(color: Colors.black);
+    if (isReady && _controller != null) {
+      bg = CameraPreview(_controller!);
     }
+
+    // fallback fake era if null
+    final eraName = widget.era?.era_name ?? "Ancient Layer";
+    final eraImage = widget.era?.image_url;
+    final eraDesc = widget.aiSummary ?? widget.era?.reason ?? "No Data";
 
     return Scaffold(
       body: Stack(
         children: [
-          // 1. Camera Preview
+          // 1. Camera Preview (Background)
           Container(
             width: double.infinity,
             height: double.infinity,
-            child: CameraPreview(_controller!),
+            child: bg,
           ),
-          // 2. AR Overlay
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.transparent, Colors.brown.withOpacity(0.5)],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                stops: [0.7, 1.0],
-              ),
-            ),
-          ),
-          Positioned(
-            left: 20,
-            top: 100,
-            child: Container(
-              padding: EdgeInsets.all(8),
-              color: Colors.black54,
-              child: Text(
-                "Edo Period Layer (15m depth)",
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
-            ),
-          ),
+          
+          // 2. The Content to Reveal (The History)
+          // This is BEHIND the scratcher, but Scratcher logic puts the content as specific child.
+          // Wait, Scratcher takes a 'child' (what is hidden initially?) no, Scratcher takes a child which is VISIBLE, 
+          // and covers it with a color/image. Wait.
+          // Scratcher: "Scratch card widget which temporarily hides content from user."
+          // So 'child' is the Prize (History).
+          
           Center(
-            child: Opacity(
-              opacity: 0.3,
-              child: Icon(Icons.castle, size: 200, color: Colors.white),
-            ),
-          ),
-          Positioned(
-            bottom: 30,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Text(
-                "Peak Era Visualization Mode",
-                style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    shadows: [Shadow(blurRadius: 10, color: Colors.black)]),
+            child: Scratcher(
+              brushSize: 50,
+              threshold: 50,
+              color: Colors.brown.shade800,
+              // image: Image.asset("assets/dirt_texture.jpg"), 
+              onChange: (value) {
+                setState(() {
+                  progress = value;
+                });
+              },
+              onThreshold: () {
+                setState(() {
+                  isRevealed = true;
+                });
+              },
+              child: Container(
+                width: 300,
+                height: 400,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.amber, width: 2),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (eraImage != null)
+                      Expanded(child: Image.network(eraImage, fit: BoxFit.cover))
+                    else
+                      Expanded(child: Icon(Icons.history_edu, size: 80, color: Colors.amber)),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(eraName, style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(eraDesc, style: TextStyle(color: Colors.white70), textAlign: TextAlign.center),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
+          
+          // 3. UI Overlays (Depth Gauge)
+          Positioned(
+            top: 50,
+            right: 20,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text("EXCAVATION DEPTH", style: TextStyle(color: Colors.greenAccent, fontSize: 12, letterSpacing: 1.5)),
+                Text("${(progress * 15).toStringAsFixed(1)}m", style: TextStyle(color: Colors.greenAccent, fontSize: 32, fontFamily: "Monospace", fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+
           Positioned(
             top: 40,
             left: 10,
@@ -120,7 +144,17 @@ class _ArScreenState extends State<ArScreen> {
               icon: Icon(Icons.arrow_back, color: Colors.white),
               onPressed: () => Navigator.pop(context),
             ),
-          )
+          ),
+          
+          if (progress < 10)
+            Positioned(
+              bottom: 100,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Text("SCRATCH TO EXCAVATE", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold,  shadows: [Shadow(blurRadius: 10, color: Colors.black)])),
+              ),
+            ),
         ],
       ),
     );

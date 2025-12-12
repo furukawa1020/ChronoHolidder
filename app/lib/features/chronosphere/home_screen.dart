@@ -131,10 +131,18 @@ class HomeScreen extends ConsumerWidget {
                             },
                           ),
                           IconButton(
-                            icon: Icon(Icons.view_in_ar, color: Colors.indigo),
-                            tooltip: "AR Mode",
+                            icon: Icon(Icons.brush, color: Colors.indigo),
+                            tooltip: "Excavate (発掘)",
                             onPressed: () {
-                              Navigator.push(context, MaterialPageRoute(builder: (c) => ArScreen()));
+                              final topEra = currentAnalysis.peak_eras.firstOrNull;
+                              if (topEra != null) {
+                                Navigator.push(context, MaterialPageRoute(builder: (c) => ArScreen(
+                                  era: topEra,
+                                  aiSummary: currentAnalysis.summary_ai,
+                                )));
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("No layers to excavate.")));
+                              }
                             },
                           ),
                         ],

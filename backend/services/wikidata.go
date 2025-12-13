@@ -6,11 +6,15 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
+	"time"
 )
 
 type WikiEvent struct {
 	Year        int
 	Description string
+	Type        string
+	ImageUrl    string
 	Weight      float64
 }
 
@@ -18,33 +22,37 @@ type WikiEvent struct {
 type WikidataResponse struct {
 	Results struct {
 		Bindings []struct {
-			EventLabel struct {
+			ItemLabel struct {
 				Value string `json:"value"`
-			} `json:"eventLabel"`
-			Time struct {
+			} `json:"itemLabel"`
+			Inception struct {
 				Value string `json:"value"`
-			} `json:"time"`
+			} `json:"inception"`
+			TypeLabel struct {
+				Value string `json:"value"`
+			} `json:"typeLabel"`
+			Image struct {
+				Value string `json:"value"`
+			} `json:"image"`
 		} `json:"bindings"`
 	} `json:"results"`
 }
 
 func FetchNearbyEntities(lat, lon float64) ([]WikiEvent, error) {
-	// Simple radius search query (Mocking the complex SPARQL for brevity/reliability in this port)
-	// In a real port, we'd copy the full SPARQL. Here we'll use a simplified reliable query logic
-	// or simulated data for the very first step if SPARQL is too flaky.
-	// Let's try to implement a REAL generic query for "events near location".
-
+	// Robust SPARQL Query (Ported from Python)
+	// Fetches Inception (P571), Type (P31), Image (P18) within 1.0km
 	sparql := fmt.Sprintf(`
-		SELECT ?eventLabel ?time WHERE {
+		SELECT ?item ?itemLabel ?inception ?typeLabel ?image WHERE {
 		  SERVICE wikibase:around {
-			?event wdt:P625 ?location .
+			?item wdt:P625 ?location .
 			bd:serviceParam wikibase:center "Point(%f %f)"^^geo:wktLiteral .
-			bd:serviceParam wikibase:radius "10" .
+			bd:serviceParam wikibase:radius "1.0" .
 		  }
-		  ?event wdt:P31/wdt:P279* wd:Q1190554 . # Instance of Occurrence/Event
-		  ?event wdt:P585 ?time .
-		  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
-		} LIMIT 20
+		  OPTIONAL { ?item wdt:P571 ?inception. }
+		  OPTIONAL { ?item wdt:P31 ?type. }
+		  OPTIONAL { ?item wdt:P18 ?image. }
+		  SERVICE wikibase:label { bd:serviceParam wikibase:language "ja,en". }
+		} LIMIT 50
 	`, lon, lat)
 
 	endpoint := "https://query.wikidata.org/sparql"
@@ -60,7 +68,7 @@ func FetchNearbyEntities(lat, lon float64) ([]WikiEvent, error) {
 	}
 	req.Header.Set("User-Agent", "ChronoHolidder/1.0 (Go-Backend)")
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -78,22 +86,59 @@ func FetchNearbyEntities(lat, lon float64) ([]WikiEvent, error) {
 
 	var events []WikiEvent
 	for _, b := range parsed.Results.Bindings {
-		// Parse Year from ISO timestamp "1868-01-01T00:00:00Z"
-		timeStr := b.Time.Value
-		if len(timeStr) >= 4 {
-			yearStr := timeStr[:4]
-            // Handle BC dates which might be "-0500"
-            if timeStr[0] == '-' {
-                 yearStr = timeStr[:5]
-            }
-			year, _ := strconv.Atoi(yearStr)
-			
-			events = append(events, WikiEvent{
-				Year:        year,
-				Description: b.EventLabel.Value,
-				Weight:      1.0, // Default weight
-			})
+		// 1. Parse Year
+		yearStr := b.Inception.Value // ISO "1868-01-01T00:00:00Z"
+		if len(yearStr) < 4 {
+			continue
 		}
+
+		yStr := yearStr[:4]
+		if yearStr[0] == '-' {
+			yStr = yearStr[:5] // Handle BC
+		}
+		year, err := strconv.Atoi(yStr)
+		if err != nil {
+			continue
+		}
+
+		// 2. Image Filtering (Real Logic)
+		imgUrl := b.Image.Value
+		if imgUrl != "" {
+			lower := strings.ToLower(imgUrl)
+			if strings.HasSuffix(lower, ".svg") {
+				imgUrl = ""
+			} else {
+				// Keyword blacklist
+				blacklist := []string{"map", "flag", "coa", "shield", "diagram", "plan", "logo", "icon"}
+				for _, kw := range blacklist {
+					if strings.Contains(lower, kw) {
+						imgUrl = ""
+						break
+					}
+				}
+			}
+		}
+
+		// 3. Weight Calculation (Base Logic, refined in Scoring)
+		weight := 10.0
+		typeVal := b.TypeLabel.Value
+		if strings.Contains(typeVal, "castle") || strings.Contains(typeVal, "Castle") || strings.Contains(typeVal, "城") {
+			weight = 50.0
+		} else if strings.Contains(typeVal, "temple") || strings.Contains(typeVal, "shrine") || strings.Contains(typeVal, "寺") || strings.Contains(typeVal, "神社") {
+			weight = 30.0
+		}
+
+		if imgUrl != "" {
+			weight += 50.0 // Visual Evidence Bonus
+		}
+
+		events = append(events, WikiEvent{
+			Year:        year,
+			Description: b.ItemLabel.Value,
+			Type:        typeVal,
+			ImageUrl:    imgUrl,
+			Weight:      weight,
+		})
 	}
 
 	return events, nil

@@ -1,18 +1,67 @@
+package main
+
+import (
+	"log"
+	"net/http"
+	"os"
+
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"chronoholidder-backend/services"
 )
 
 func main() {
-	// ... (unchanged) ...
+	// Load environment variables
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using defaults")
+	}
+
 	r := gin.Default()
+
+	// Global Middleware
 	r.Use(gin.Recovery())
-    // ...
-    // Copy content until Models
-    
-    // ...
+	r.Use(gin.Logger())
+
+	// Health Check
+	r.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "online",
+			"service": "ChronoHolidder Backend (Go)",
+		})
+	})
+
+	// API Group
+	api := r.Group("/api")
+	api.Use(AuthMiddleware())
+	{
+		api.POST("/analyze-location", AnalyzeLocationHandler)
+	}
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8000"
+	}
+
+	log.Printf("Server running on port %s", port)
+	r.Run(":" + port)
 }
-// ... copy AuthMiddleware ...
+
+// AuthMiddleware checks for the X-CHRONO-API-KEY header
+func AuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		apiKey := c.GetHeader("X-CHRONO-API-KEY")
+		secret := os.Getenv("CHRONO_BACKEND_SECRET")
+		if secret == "" {
+			secret = "dev_secret_key_12345"
+		}
+
+		if apiKey != secret {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid API Key"})
+			return
+		}
+		c.Next()
+	}
+}
 
 // Models
 type LocationRequest struct {

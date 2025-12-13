@@ -3,7 +3,8 @@ import 'package:flutter/foundation.dart';
 
 class AppConstants {
   // TODO: Replace with your actual Railway URL after deployment
-  static const String _productionUrl = "https://your-railway-app.up.railway.app";
+  // FOR LOCAL RELEASE TESTING: We point this to localhost so the Release APK works with adb reverse.
+  static const String _productionUrl = "http://127.0.0.1:8000";
   
   static String get backendUrl {
     if (kReleaseMode) return _productionUrl; // Production (Google Play)

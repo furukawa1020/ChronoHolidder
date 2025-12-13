@@ -11,3 +11,5 @@ scipy
 tenacity
 async-lru
 slowapi
+pytest
+httpx

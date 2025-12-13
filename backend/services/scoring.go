@@ -20,17 +20,13 @@ func Analyze(lat, lon float64) ([]EraResult, string) {
 	var wg sync.WaitGroup
 	var wikiEvents []WikiEvent
 	var paleoEvents []PaleoEvent
-	var wikiErr, paleoErr error
-
-	// 1. Parallel Fetching for Speed
-	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		wikiEvents, wikiErr = FetchNearbyEntities(lat, lon)
+		wikiEvents, _ = FetchNearbyEntities(lat, lon)
 	}()
 	go func() {
 		defer wg.Done()
-		paleoEvents, paleoErr = FetchPaleoOccurrences(lat, lon)
+		paleoEvents, _ = FetchPaleoOccurrences(lat, lon)
 	}()
 	wg.Wait()
 

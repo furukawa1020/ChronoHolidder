@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"sync"
 )
 
 type EraResult struct {
@@ -16,101 +17,170 @@ type EraResult struct {
 }
 
 func Analyze(lat, lon float64) ([]EraResult, string) {
-	// 1. Fetch Data
-	events, err := FetchNearbyEntities(lat, lon)
-	// fallback if error or empty
-	if err != nil || len(events) == 0 {
-		return []EraResult{}, "No substantial historical data found nearby."
+	var wg sync.WaitGroup
+	var wikiEvents []WikiEvent
+	var paleoEvents []PaleoEvent
+	var wikiErr, paleoErr error
+
+	// 1. Parallel Fetching for Speed
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		wikiEvents, wikiErr = FetchNearbyEntities(lat, lon)
+	}()
+	go func() {
+		defer wg.Done()
+		paleoEvents, paleoErr = FetchPaleoOccurrences(lat, lon)
+	}()
+	wg.Wait()
+
+	if len(wikiEvents) == 0 && len(paleoEvents) == 0 {
+		return []EraResult{}, "No substantial historical or paleo data found."
 	}
 
-	// 2. KDE Setup
-	// Range: -2000 to 2030, Step: 10 years
-	const minYear = -2000
-	const maxYear = 2030
-	const step = 10
-	size := (maxYear - minYear) / step
+	var allPeaks []EraResult
+
+	// 2. Domain A: History Analysis (-2000 to 2030)
+	if len(wikiEvents) > 0 {
+		hPeaks := runGaussianKDE(-2000, 2030, 10, 50.0, convertWikiToGeneric(wikiEvents))
+		allPeaks = append(allPeaks, hPeaks...)
+	}
+
+	// 3. Domain B: Paleo Analysis (-100M to -2000)
+	// Only run if we actually have paleo events to save CPU
+	if len(paleoEvents) > 0 {
+		// Adaptive range based on findings, but fixed for simplicity
+		// Sigma = 2 Million Years
+		pPeaks := runGaussianKDE(-100000000, -2000, 1000000, 2000000.0, convertPaleoToGeneric(paleoEvents))
+		allPeaks = append(allPeaks, pPeaks...)
+	}
+
+	// 4. Sort & Limit
+	sort.Slice(allPeaks, func(i, j int) bool {
+		return allPeaks[i].Score > allPeaks[j].Score
+	})
+
+	if len(allPeaks) > 3 {
+		allPeaks = allPeaks[:3]
+	}
+
+	summaryText := GenerateSummary(allPeaks)
+	return allPeaks, summaryText
+}
+
+// Generic structure for math engine
+type GenericEvent struct {
+	Year   int
+	Weight float64
+	Desc   string
+	Image  string
+}
+
+func convertWikiToGeneric(src []WikiEvent) []GenericEvent {
+	dst := make([]GenericEvent, len(src))
+	for i, e := range src {
+		dst[i] = GenericEvent{Year: e.Year, Weight: e.Weight, Desc: e.Description, Image: e.ImageUrl}
+	}
+	return dst
+}
+
+func convertPaleoToGeneric(src []PaleoEvent) []GenericEvent {
+	dst := make([]GenericEvent, len(src))
+	for i, e := range src {
+		dst[i] = GenericEvent{Year: e.Year, Weight: e.Weight, Desc: e.Description}
+	}
+	return dst
+}
+
+// runGaussianKDE is the core pure-Go math engine
+func runGaussianKDE(start, end, step int, sigma float64, events []GenericEvent) []EraResult {
+	size := (end - start) / step
+	if size <= 0 {
+		return nil
+	}
+
 	gridScores := make([]float64, size+1)
 	gridYears := make([]int, size+1)
 
 	for i := 0; i <= size; i++ {
-		gridYears[i] = minYear + (i * step)
+		gridYears[i] = start + (i * step)
 	}
 
-	sigma := 50.0 // Bandwidth
-
-	// 3. Compute Scores (Gaussian Sum)
+	// Compute Scores
 	for i, year := range gridYears {
 		sum := 0.0
 		for _, e := range events {
-			// Gaussian kernel
 			diff := float64(year - e.Year)
+			// Gaussian: w * exp(-0.5 * (d/sigma)^2)
 			val := e.Weight * math.Exp(-0.5*math.Pow(diff/sigma, 2))
 			sum += val
 		}
 		gridScores[i] = sum
 	}
 
-	// 4. Find Peaks
+	// Find Peaks
 	var peaks []EraResult
 	for i := 1; i < len(gridScores)-1; i++ {
-		// Local maxima check
 		if gridScores[i] > gridScores[i-1] && gridScores[i] > gridScores[i+1] {
-			if gridScores[i] > 1.0 { // Threshold
+			if gridScores[i] > 10.0 { // Threshold
 				peakYear := gridYears[i]
-				
-				// Find representative event for this peak
-				reason := "Historical activity detected"
-				minDist := 1000.0
+
+				// Find representative event
+				reason := "Unknown Activity"
+				minDist := 1e15 // Large number
+				var bestImg *string
+
 				for _, e := range events {
 					d := math.Abs(float64(e.Year - peakYear))
 					if d < minDist {
 						minDist = d
-						reason = e.Description
+						reason = e.Desc
+						if e.Image != "" {
+							img := e.Image
+							bestImg = &img
+						}
 					}
 				}
 
 				peaks = append(peaks, EraResult{
 					Name:      fmtEraName(peakYear),
-					StartYear: peakYear - 50,
-					EndYear:   peakYear + 50,
+					StartYear: peakYear, // Simplified range
+					EndYear:   peakYear,
 					Score:     math.Round(gridScores[i]*100) / 100,
 					Reason:    reason,
+					ImageUrl:  bestImg,
 				})
 			}
 		}
 	}
-
-	// Sort by score descending
-	sort.Slice(peaks, func(i, j int) bool {
-		return peaks[i].Score > peaks[j].Score
-	})
-
-	if len(peaks) > 3 {
-		peaks = peaks[:3]
-	}
-	
-	if len(peaks) == 0 {
-		return []EraResult{}, "Data found but no distinct eras formed."
-	}
-
-	return peaks, GenerateSummary(peaks)
+	return peaks
 }
 
 func fmtEraName(year int) string {
+	if year < -10000 {
+		mya := -year / 1000000
+		return fmt.Sprintf("Paleo Era (%d Ma)", mya)
+	}
 	if year < 0 {
 		return fmt.Sprintf("%d BC Era", -year)
 	}
-	if year < 1000 {
-		return "Ancient/Jomon Era"
+	if year < 710 {
+		return "Asuka/Ancient"
+	}
+	if year < 794 {
+		return "Nara Period"
+	}
+	if year < 1185 {
+		return "Heian Period"
 	}
 	if year < 1600 {
-		return "Samurai/Medieval Era"
+		return "Samurai Era"
 	}
 	if year < 1868 {
 		return "Edo Period"
 	}
 	if year < 1920 {
-		return "Meiji/Taisho Era"
+		return "Meiji/Taisho"
 	}
 	return "Modern Era"
 }

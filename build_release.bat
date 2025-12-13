@@ -12,11 +12,11 @@ cd app
 
 echo.
 echo [1/2] Updating dependencies...
-call flutter pub get
+call C:\Users\wakuw\Downloads\flutter\bin\flutter.bat pub get
 
 echo.
 echo [2/2] Building Release Bundle...
-call flutter build appbundle --release
+call C:\Users\wakuw\Downloads\flutter\bin\flutter.bat build appbundle --release
 
 echo.
 if %ERRORLEVEL% NEQ 0 (

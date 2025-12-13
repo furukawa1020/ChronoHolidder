@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:chronoholidder/data/api_client.dart';
 import 'package:chronoholidder/data/models.dart';
 import 'package:chronoholidder/features/collection/collection_screen.dart';
@@ -35,9 +36,68 @@ class UserLocationNotifier extends Notifier<LatLng> {
 
 final userLocationProvider = NotifierProvider<UserLocationNotifier, LatLng>(UserLocationNotifier.new);
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkTutorial());
+  }
+
+  Future<void> _checkTutorial() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool seen = prefs.getBool('tutorial_seen') ?? false;
+
+    if (!seen) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: Text("Welcome to ChronoHolidder"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Become a Time Excavator in 3 steps:"),
+              SizedBox(height: 10),
+              ListTile(
+                leading: Icon(Icons.radar, color: Colors.blue),
+                title: Text("1. Analyze"),
+                subtitle: Text("scan the ground for historical density."),
+              ),
+              ListTile(
+                leading: Icon(Icons.brush, color: Colors.amber),
+                title: Text("2. Excavate"),
+                subtitle: Text("Scratch away the dirt to reveal the past."),
+              ),
+              ListTile(
+                leading: Icon(Icons.collections_bookmark, color: Colors.green),
+                title: Text("3. Collect"),
+                subtitle: Text("Save your findings to your Time Collection."),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                prefs.setBool('tutorial_seen', true);
+                Navigator.of(context).pop();
+              },
+              child: Text("Let's Dig!"),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final userLocation = ref.watch(userLocationProvider);
     final currentAnalysis = ref.watch(currentAnalysisProvider);
     final isLoading = ref.watch(isLoadingProvider);

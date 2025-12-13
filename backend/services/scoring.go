@@ -93,7 +93,7 @@ func Analyze(lat, lon float64) ([]EraResult, string) {
 		return []EraResult{}, "Data found but no distinct eras formed."
 	}
 
-	return peaks, fmt.Sprintf("Found %d distinct historical eras based on %d events.", len(peaks), len(events))
+	return peaks, GenerateSummary(peaks)
 }
 
 func fmtEraName(year int) string {

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"sort"
-	"sync"
 )
 
 type EraResult struct {
@@ -17,18 +16,10 @@ type EraResult struct {
 }
 
 func Analyze(lat, lon float64) ([]EraResult, string) {
-	var wg sync.WaitGroup
-	var wikiEvents []WikiEvent
-	var paleoEvents []PaleoEvent
-	go func() {
-		defer wg.Done()
-		wikiEvents, _ = FetchNearbyEntities(lat, lon)
-	}()
-	go func() {
-		defer wg.Done()
-		paleoEvents, _ = FetchPaleoOccurrences(lat, lon)
-	}()
-	wg.Wait()
+	// 1. Sequential Fetching (Stability Fix)
+	// We run sequentially to avoid fatal runtime errors (concurrent map writes) in the current environment.
+	wikiEvents, _ := FetchNearbyEntities(lat, lon)
+	paleoEvents, _ := FetchPaleoOccurrences(lat, lon)
 
 	if len(wikiEvents) == 0 && len(paleoEvents) == 0 {
 		return []EraResult{}, "No substantial historical or paleo data found."

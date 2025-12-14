@@ -48,3 +48,21 @@ func GenerateSummary(eras []EraResult) string {
 
 	return "AI generated no content."
 }
+
+func generateRuleBasedSummary(eras []EraResult) string {
+	if len(eras) == 0 {
+		return "No significant historical activity detected in this area yet."
+	}
+
+	// Pick the top era
+	top := eras[0]
+	summary := fmt.Sprintf("Analysis indicates strong presence of the %s around year %d. Evidence suggests: %s.", top.Name, top.StartYear, top.Reason)
+
+	// Add secondary if available
+	if len(eras) > 1 {
+		second := eras[1]
+		summary += fmt.Sprintf(" Also, traces of %s were found (%s).", second.Name, second.Reason)
+	}
+
+	return summary
+}

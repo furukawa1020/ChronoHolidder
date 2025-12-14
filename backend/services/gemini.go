@@ -13,7 +13,7 @@ import (
 func GenerateSummary(eras []EraResult) string {
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {
-		return fmt.Sprintf("Found %d distinct historical eras. (Add GEMINI_API_KEY to .env for AI insights)", len(eras))
+		return generateRuleBasedSummary(eras)
 	}
 
 	ctx := context.Background()

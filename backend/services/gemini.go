@@ -27,11 +27,12 @@ func GenerateSummary(eras []EraResult) string {
 
 	// Construct Prompt
 	var sb strings.Builder
-	sb.WriteString("Analyze these historical eras found at a location:\n")
+	sb.WriteString("You are a strict non-fiction historian. Summarize the following historical layers based ONLY on the provided data. Do not hallucinate details.\n")
+	sb.WriteString("Data:\n")
 	for _, e := range eras {
-		sb.WriteString(fmt.Sprintf("- %s (%d-%d): %s\n", e.Name, e.StartYear, e.EndYear, e.Reason))
+		sb.WriteString(fmt.Sprintf("- %s (%d): %s\n", e.Name, e.StartYear, e.Reason))
 	}
-	sb.WriteString("Write a short, exciting summary (max 2 sentences) for a treasure hunter user.")
+	sb.WriteString("\nQuery: Write a passionate, epic, but strictly factual summary (max 3 sentences) describing what lies beneath. If 'Fossil' is present, emphasize the ancient past.")
 
 	resp, err := model.GenerateContent(ctx, genai.Text(sb.String()))
 	if err != nil {

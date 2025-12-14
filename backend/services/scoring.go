@@ -16,10 +16,34 @@ type EraResult struct {
 }
 
 func Analyze(lat, lon float64) ([]EraResult, string) {
-	// 1. Sequential Fetching (Stability Fix)
-	// We run sequentially to avoid fatal runtime errors (concurrent map writes) in the current environment.
-	wikiEvents, _ := FetchNearbyEntities(lat, lon)
-	paleoEvents, _ := FetchPaleoOccurrences(lat, lon)
+	// 1. Concurrent Fetching with Channels (Safe Speed)
+	wikiChan := make(chan []WikiEvent, 1)
+	paleoChan := make(chan []PaleoEvent, 1)
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Println("Recovered in Wiki:", r)
+				wikiChan <- nil
+			}
+		}()
+		events, _ := FetchNearbyEntities(lat, lon)
+		wikiChan <- events
+	}()
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Println("Recovered in Paleo:", r)
+				paleoChan <- nil
+			}
+		}()
+		events, _ := FetchPaleoOccurrences(lat, lon)
+		paleoChan <- events
+	}()
+
+	wikiEvents := <-wikiChan
+	paleoEvents := <-paleoChan
 
 	if len(wikiEvents) == 0 && len(paleoEvents) == 0 {
 		return []EraResult{}, "No substantial historical or paleo data found."
